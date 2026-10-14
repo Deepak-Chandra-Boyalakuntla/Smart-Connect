@@ -1,0 +1,2196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartClass Connect - AI-Assisted Classroom Wi-Fi Coverage Optimization</title>
+
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
+  <style>
+    :root {
+      --sc-primary: #3b82f6;
+      --sc-dark: #0f172a;
+      --sc-card-bg: #ffffff;
+      --sc-border: #e2e8f0;
+      --wifi-strong: #10b981;
+      --wifi-moderate: #f59e0b;
+      --wifi-weak: #ef4444;
+      --wifi-ap: #8b5cf6;
+      --wifi-candidate: #06b6d4;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #f8fafc;
+      color: #1e293b;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    main { flex: 1; }
+
+    .navbar-brand-sc {
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      font-size: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .brand-badge {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      background: rgba(255, 255, 255, 0.2);
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+    }
+
+    .card-sc {
+      background: var(--sc-card-bg);
+      border: 1px solid var(--sc-border);
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    }
+
+    .card-header-sc {
+      background: #ffffff;
+      border-bottom: 1px solid var(--sc-border);
+      padding: 0.9rem 1.25rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .kpi-card {
+      padding: 1.25rem;
+      border-radius: 12px;
+      border: 1px solid var(--sc-border);
+      background: #ffffff;
+    }
+
+    .kpi-label {
+      font-size: 0.775rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #64748b;
+      margin-bottom: 0.35rem;
+    }
+
+    .kpi-value {
+      font-size: 2rem;
+      font-weight: 700;
+      line-height: 1.1;
+      color: var(--sc-dark);
+    }
+
+    .badge-strong { background-color: rgba(16, 185, 129, 0.15); color: #065f46; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-moderate { background-color: rgba(245, 158, 11, 0.15); color: #92400e; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .badge-weak { background-color: rgba(239, 68, 68, 0.15); color: #991b1b; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .badge-ap { background-color: rgba(139, 92, 246, 0.15); color: #5b21b6; border: 1px solid rgba(139, 92, 246, 0.3); }
+    .badge-candidate { background-color: rgba(6, 182, 212, 0.15); color: #155e75; border: 1px solid rgba(6, 182, 212, 0.3); }
+
+    .map-viewport {
+      position: relative;
+      background-color: #f1f5f9;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .map-canvas {
+      display: block;
+      width: 100%;
+      cursor: crosshair;
+    }
+
+    .map-legend {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.85rem;
+      font-size: 0.825rem;
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 4px;
+    }
+
+    #map-tooltip {
+      position: absolute;
+      pointer-events: none;
+      background: rgba(15, 23, 42, 0.92);
+      color: #ffffff;
+      padding: 0.45rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.775rem;
+      z-index: 100;
+      display: none;
+      white-space: nowrap;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+    }
+
+    .notice-box {
+      background: #f8fafc;
+      border-left: 4px solid #3b82f6;
+      padding: 0.85rem 1.15rem;
+      border-radius: 0 8px 8px 0;
+      font-size: 0.875rem;
+    }
+
+    .notice-box-warning {
+      background: #fffbeb;
+      border-left-color: #f59e0b;
+      color: #78350f;
+    }
+
+    @media print {
+      nav, footer, .no-print, .btn, .modal { display: none !important; }
+      body { background: #fff !important; color: #000 !important; }
+      .tab-pane { display: block !important; opacity: 1 !important; }
+      #tab-dashboard, #tab-map, #tab-measurements, #tab-recommendations, #tab-comparison { display: none !important; }
+      #tab-report { display: block !important; }
+      .card-sc { border: 1px solid #ccc !important; box-shadow: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navigation Bar -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top shadow-sm py-2">
+    <div class="container-fluid px-lg-4">
+      <a class="navbar-brand navbar-brand-sc text-white" href="#" onclick="switchTab('dashboard')">
+        <i class="bi bi-broadcast-pin text-primary fs-4"></i>
+        <span>SmartClass <span class="text-primary">Connect</span></span>
+        <span class="brand-badge text-white">Wi-Fi Optimizer</span>
+      </a>
+
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarContent">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+
+      <div class="collapse navbar-collapse" id="navbarContent">
+        <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-3">
+          <li class="nav-item">
+            <a class="nav-link nav-tab-link active" id="nav-dashboard" href="#" onclick="switchTab('dashboard')">
+              <i class="bi bi-grid-fill me-1"></i> Dashboard
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link nav-tab-link" id="nav-map" href="#" onclick="switchTab('map')">
+              <i class="bi bi-map me-1"></i> Classroom Map
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link nav-tab-link" id="nav-measurements" href="#" onclick="switchTab('measurements')">
+              <i class="bi bi-table me-1"></i> Measurements
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link nav-tab-link" id="nav-recommendations" href="#" onclick="switchTab('recommendations')">
+              <i class="bi bi-magic me-1"></i> AP Recommendations
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link nav-tab-link" id="nav-comparison" href="#" onclick="switchTab('comparison')">
+              <i class="bi bi-arrow-left-right me-1"></i> Before vs After
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link nav-tab-link" id="nav-report" href="#" onclick="switchTab('report')">
+              <i class="bi bi-file-earmark-pdf me-1"></i> Audit Report
+            </a>
+          </li>
+        </ul>
+
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn btn-warning btn-sm fw-semibold text-dark px-3" onclick="loadDemoDataset()">
+            <i class="bi bi-lightning-charge-fill me-1"></i> Load Demo Dataset
+          </button>
+          <button class="btn btn-primary btn-sm fw-semibold px-3" data-bs-toggle="modal" data-bs-target="#newRoomModal">
+            <i class="bi bi-plus-lg me-1"></i> New Room
+          </button>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Notification Banner -->
+  <div class="container-fluid px-lg-4 mt-3 no-print">
+    <div id="alertContainer"></div>
+  </div>
+
+  <!-- Main Viewports -->
+  <main class="container-fluid px-lg-4 py-3">
+
+    <!-- ==========================================
+         TAB 1: DASHBOARD
+         ========================================== -->
+    <div class="tab-pane active" id="tab-dashboard">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center page-header gap-3 mb-4">
+        <div>
+          <h2 class="fw-bold mb-1">Campus Wi-Fi Coverage Dashboard</h2>
+          <p class="text-muted mb-0">Monitor classroom coverage health, locate dead spots, and plan access-point additions.</p>
+        </div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-outline-warning text-dark fw-semibold" onclick="loadDemoDataset()">
+            <i class="bi bi-play-circle-fill text-warning me-1"></i> Demo Walkthrough
+          </button>
+          <button class="btn btn-primary fw-semibold" data-bs-toggle="modal" data-bs-target="#newRoomModal">
+            <i class="bi bi-plus-lg me-1"></i> Add Classroom
+          </button>
+        </div>
+      </div>
+
+      <!-- KPI Summary Metrics Grid -->
+      <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-lg-3">
+          <div class="kpi-card shadow-sm">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <div class="kpi-label">Classrooms Mapped</div>
+                <div class="kpi-value" id="kpi-total-rooms">1</div>
+                <div class="kpi-subtext">Active floor plans</div>
+              </div>
+              <div class="text-primary fs-3"><i class="bi bi-door-open"></i></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-sm-6 col-lg-3">
+          <div class="kpi-card shadow-sm">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <div class="kpi-label">Total Measurements</div>
+                <div class="kpi-value text-info" id="kpi-total-points">15</div>
+                <div class="kpi-subtext">Surveyed desk points</div>
+              </div>
+              <div class="text-info fs-3"><i class="bi bi-geo-alt"></i></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-sm-6 col-lg-3">
+          <div class="kpi-card shadow-sm">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <div class="kpi-label">Detected Dead Zones</div>
+                <div class="kpi-value text-danger" id="kpi-weak-points">6</div>
+                <div class="kpi-subtext">Signal &lt; -70 dBm</div>
+              </div>
+              <div class="text-danger fs-3"><i class="bi bi-wifi-off"></i></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-sm-6 col-lg-3">
+          <div class="kpi-card shadow-sm">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <div class="kpi-label">Rooms Needing Fix</div>
+                <div class="kpi-value text-warning" id="kpi-rooms-attention">1</div>
+                <div class="kpi-subtext">With recorded weak spots</div>
+              </div>
+              <div class="text-warning fs-3"><i class="bi bi-exclamation-triangle"></i></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Classrooms List + Educational Sidebar -->
+      <div class="row g-4 mb-4">
+        <div class="col-lg-8">
+          <div class="card card-sc h-100">
+            <div class="card-header-sc">
+              <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-buildings text-primary fs-5"></i>
+                <span>Monitored Classrooms</span>
+              </div>
+              <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#newRoomModal">
+                <i class="bi bi-plus-circle me-1"></i> Add Room
+              </button>
+            </div>
+            <div class="card-body p-3" id="classroomCardsContainer">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-4">
+          <div class="card card-sc mb-4">
+            <div class="card-header-sc">
+              <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-book-half text-primary fs-5"></i>
+                <span>Beginner's Wi-Fi Guide</span>
+              </div>
+            </div>
+            <div class="card-body p-3">
+              <h6 class="fw-bold mb-1">What is Wi-Fi Signal (dBm)?</h6>
+              <p class="text-muted small mb-3">
+                Signal power is measured in <strong>dBm</strong>. Because radio waves lose energy across space, values are <strong>negative numbers</strong>:
+              </p>
+              <ul class="list-group list-group-flush small mb-3">
+                <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                  <span><span class="badge badge-strong me-1">&ge; -60 dBm</span> Strong</span>
+                  <span class="text-muted">4K/HD stream, swift video calls</span>
+                </li>
+                <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                  <span><span class="badge badge-moderate me-1">-60 to -70 dBm</span> Moderate</span>
+                  <span class="text-muted">General LMS access, minor lag</span>
+                </li>
+                <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                  <span><span class="badge badge-weak me-1">&lt; -70 dBm</span> Weak</span>
+                  <span class="text-danger fw-semibold">Disconnections & packet loss</span>
+                </li>
+              </ul>
+              <div class="notice-box">
+                <strong>Golden Rule:</strong> Closer to 0 is stronger! <strong>-45 dBm</strong> is significantly stronger and faster than <strong>-82 dBm</strong>.
+              </div>
+            </div>
+          </div>
+
+          <div class="card card-sc">
+            <div class="card-header-sc">
+              <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-shield-check text-info fs-5"></i>
+                <span>Responsible Network Testing</span>
+              </div>
+            </div>
+            <div class="card-body p-3 small text-muted">
+              <p class="mb-2">SmartClass Connect uses <strong>strictly passive, ethical testing</strong>:</p>
+              <ul class="ps-3 mb-2">
+                <li>Never collects or stores Wi-Fi passwords.</li>
+                <li>Never captures student web traffic or browsing packets.</li>
+                <li>Operates solely on voluntarily recorded coordinates and signal readings.</li>
+              </ul>
+              <div class="alert alert-warning py-1 px-2 mb-0 small">
+                Planning tool only. Hardware changes must be done by authorized staff.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==========================================
+         TAB 2: CLASSROOM MAP
+         ========================================== -->
+    <div class="tab-pane d-none" id="tab-map">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center page-header gap-3 mb-3">
+        <div>
+          <div class="d-flex align-items-center gap-2">
+            <h2 class="fw-bold mb-0" id="map-room-title">Science Lecture Hall 204</h2>
+            <span class="badge badge-weak" id="map-health-badge">Needs Attention</span>
+          </div>
+          <p class="text-muted small mb-0 mt-1" id="map-room-subtext">
+            Dimensions: 12m × 8m • 1 Access Point • 15 Survey Points
+          </p>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+          <select class="form-select form-select-sm" id="mapSessionSelect" onchange="changeSession(this.value)" style="width: auto;">
+            <!-- Populated dynamically -->
+          </select>
+          <button class="btn btn-outline-info text-dark btn-sm fw-semibold" onclick="switchTab('recommendations')">
+            <i class="bi bi-magic me-1"></i> Recommendations
+          </button>
+          <button class="btn btn-outline-success btn-sm fw-semibold" onclick="switchTab('comparison')">
+            <i class="bi bi-arrow-left-right me-1"></i> Before vs After
+          </button>
+          <button class="btn btn-outline-secondary btn-sm" onclick="exportCSV()">
+            <i class="bi bi-download me-1"></i> Export CSV
+          </button>
+        </div>
+      </div>
+
+      <div class="row g-4 mb-4">
+        <div class="col-xl-8">
+          <div class="card card-sc">
+            <div class="d-flex flex-wrap justify-content-between align-items-center p-3 border-bottom gap-2">
+              <div class="map-legend">
+                <div><span class="legend-dot" style="background:#10b981;"></span> Strong (&ge; -60)</div>
+                <div><span class="legend-dot" style="background:#f59e0b;"></span> Moderate (-60 to -70)</div>
+                <div><span class="legend-dot" style="background:#ef4444;"></span> Weak (&lt; -70)</div>
+                <div><span style="color:#8b5cf6;">📡</span> Existing AP</div>
+              </div>
+              <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-outline-primary" id="btnToggleHeatmap" onclick="toggleHeatmap()">
+                  <i class="bi bi-soundwave me-1"></i> Heatmap Estimate
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" id="btnToggleLabels" onclick="toggleLabels()">
+                  <i class="bi bi-tag"></i> Labels
+                </button>
+                <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#addPointModal">
+                  <i class="bi bi-plus-lg me-1"></i> Add Point
+                </button>
+              </div>
+            </div>
+
+            <div class="map-viewport p-2 text-center position-relative">
+              <div id="map-tooltip"></div>
+              <canvas id="floorCanvas" class="map-canvas"></canvas>
+              <div class="position-absolute bottom-0 start-0 m-2 px-2 py-1 bg-white bg-opacity-75 rounded small text-muted border">
+                <i class="bi bi-cursor-fill text-primary me-1"></i> Click anywhere on the map to log a measurement at that coordinate
+              </div>
+            </div>
+
+            <div class="card-footer bg-white text-muted small d-flex justify-content-between align-items-center">
+              <span>Coordinate System: (0,0) is Front-Left corner. Units in meters.</span>
+              <button class="btn btn-link btn-sm p-0 text-decoration-none" data-bs-toggle="modal" data-bs-target="#addApModal">
+                <i class="bi bi-plus-circle me-1"></i> Add Access Point
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-xl-4">
+          <!-- Coverage Analysis Card -->
+          <div class="card card-sc mb-4">
+            <div class="card-header-sc">
+              <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-pie-chart text-primary fs-5"></i>
+                <span>Coverage Analysis</span>
+              </div>
+              <span class="badge bg-light text-dark border" id="map-points-badge">15 Points</span>
+            </div>
+
+            <div class="card-body p-3">
+              <div class="mb-3">
+                <div class="d-flex justify-content-between small text-muted mb-1">
+                  <span>Coverage Distribution</span>
+                  <span id="map-strong-pct">40% Strong</span>
+                </div>
+                <div class="progress" style="height: 14px;">
+                  <div class="progress-bar bg-success" id="prog-strong" style="width: 40%"></div>
+                  <div class="progress-bar bg-warning" id="prog-moderate" style="width: 20%"></div>
+                  <div class="progress-bar bg-danger" id="prog-weak" style="width: 40%"></div>
+                </div>
+              </div>
+
+              <div class="row g-2 text-center mb-3">
+                <div class="col-4">
+                  <div class="p-2 border rounded bg-light">
+                    <div class="text-success fw-bold fs-5" id="stat-strong-cnt">6</div>
+                    <div class="text-muted small">Strong</div>
+                  </div>
+                </div>
+                <div class="col-4">
+                  <div class="p-2 border rounded bg-light">
+                    <div class="text-warning fw-bold fs-5" id="stat-mod-cnt">3</div>
+                    <div class="text-muted small">Moderate</div>
+                  </div>
+                </div>
+                <div class="col-4">
+                  <div class="p-2 border rounded bg-light">
+                    <div class="text-danger fw-bold fs-5" id="stat-weak-cnt">6</div>
+                    <div class="text-muted small">Weak</div>
+                  </div>
+                </div>
+              </div>
+
+              <ul class="list-group list-group-flush small mb-3">
+                <li class="list-group-item d-flex justify-content-between px-0">
+                  <span class="text-muted">Average Signal:</span>
+                  <strong id="stat-avg-signal">-66.3 dBm</strong>
+                </li>
+                <li class="list-group-item d-flex justify-content-between px-0">
+                  <span class="text-muted">Avg Download Speed:</span>
+                  <strong id="stat-avg-speed">48.5 Mbps</strong>
+                </li>
+                <li class="list-group-item d-flex justify-content-between px-0">
+                  <span class="text-muted">Avg Ping Latency:</span>
+                  <strong id="stat-avg-latency">45.0 ms</strong>
+                </li>
+              </ul>
+
+              <div id="coverage-alert-box"></div>
+            </div>
+          </div>
+
+          <!-- AP List Card -->
+          <div class="card card-sc">
+            <div class="card-header-sc">
+              <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-router text-primary fs-5"></i>
+                <span>Access Points</span>
+              </div>
+              <button class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addApModal">
+                <i class="bi bi-plus-lg"></i>
+              </button>
+            </div>
+            <div class="card-body p-2" id="apListContainer">
+              <!-- AP items -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==========================================
+         TAB 3: MEASUREMENTS
+         ========================================== -->
+    <div class="tab-pane d-none" id="tab-measurements">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center page-header gap-3 mb-3">
+        <div>
+          <h2 class="fw-bold mb-1">Wi-Fi Survey Measurements</h2>
+          <p class="text-muted small mb-0">Manage, inspect, and import survey data points.</p>
+        </div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-outline-primary btn-sm fw-semibold" onclick="switchTab('map')">
+            <i class="bi bi-map me-1"></i> View on Map
+          </button>
+          <button class="btn btn-outline-secondary btn-sm" onclick="exportCSV()">
+            <i class="bi bi-download me-1"></i> Export CSV
+          </button>
+        </div>
+      </div>
+
+      <div class="row g-4 mb-4">
+        <!-- Forms -->
+        <div class="col-lg-4">
+          <div class="card card-sc mb-4">
+            <div class="card-header-sc">
+              <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-pencil-square text-primary"></i>
+                <span>Manual Entry</span>
+              </div>
+            </div>
+            <div class="card-body p-3">
+              <form id="manualEntryForm" onsubmit="handleManualAdd(event)">
+                <div class="row g-2 mb-2">
+                  <div class="col-6">
+                    <label class="form-label small fw-bold">X (meters) *</label>
+                    <input type="number" step="0.1" min="0" class="form-control form-control-sm" id="manX" required placeholder="X pos">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small fw-bold">Y (meters) *</label>
+                    <input type="number" step="0.1" min="0" class="form-control form-control-sm" id="manY" required placeholder="Y pos">
+                  </div>
+                </div>
+
+                <div class="mb-2">
+                  <label class="form-label small fw-bold">Signal Strength (dBm) *</label>
+                  <input type="number" step="0.5" min="-100" max="-20" class="form-control form-control-sm" id="manSignal" required placeholder="e.g. -65">
+                  <div class="form-text" style="font-size:0.75rem;">Negative number (-40 is strong, -80 is weak)</div>
+                </div>
+
+                <div class="row g-2 mb-2">
+                  <div class="col-6">
+                    <label class="form-label small">Speed (Mbps)</label>
+                    <input type="number" step="0.1" min="0" class="form-control form-control-sm" id="manSpeed" placeholder="Mbps">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small">Latency (ms)</label>
+                    <input type="number" step="1" min="0" class="form-control form-control-sm" id="manLatency" placeholder="ms">
+                  </div>
+                </div>
+
+                <div class="row g-2 mb-3">
+                  <div class="col-6">
+                    <label class="form-label small">Desk Label</label>
+                    <input type="text" class="form-control form-control-sm" id="manLabel" placeholder="e.g. Row 2 Desk 4">
+                  </div>
+                  <div class="col-6">
+                    <label class="form-label small">Source</label>
+                    <select class="form-select form-select-sm" id="manSource">
+                      <option value="measured">Measured</option>
+                      <option value="simulated">Simulated</option>
+                    </select>
+                  </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-sm w-100 fw-semibold">
+                  <i class="bi bi-plus-circle me-1"></i> Add Survey Point
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <!-- CSV Upload -->
+          <div class="card card-sc">
+            <div class="card-header-sc">
+              <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-filetype-csv text-success"></i>
+                <span>Import CSV File</span>
+              </div>
+            </div>
+            <div class="card-body p-3">
+              <div class="mb-3">
+                <label class="form-label small fw-bold">Select .CSV File</label>
+                <input type="file" class="form-control form-control-sm" id="csvFileInput" accept=".csv" onchange="handleCSVUpload(this)">
+                <div class="form-text" style="font-size:0.75rem;">
+                  Format: <code>x,y,signal_dbm,download_mbps,latency_ms,source,location_label</code>
+                </div>
+              </div>
+              <button class="btn btn-outline-secondary btn-sm w-100" onclick="downloadTemplateCSV()">
+                <i class="bi bi-file-earmark-arrow-down me-1"></i> Download Sample CSV
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Table -->
+        <div class="col-lg-8">
+          <div class="card card-sc">
+            <div class="card-header-sc">
+              <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-table text-primary"></i>
+                <span id="table-point-count">Recorded Survey Points</span>
+              </div>
+              <button class="btn btn-outline-danger btn-sm" onclick="clearCurrentMeasurements()">
+                <i class="bi bi-trash3 me-1"></i> Clear Points
+              </button>
+            </div>
+
+            <div class="card-body p-0">
+              <div class="table-responsive">
+                <table class="table table-hover table-striped align-middle mb-0 small">
+                  <thead class="table-light">
+                    <tr>
+                      <th>#</th>
+                      <th>Location</th>
+                      <th>Coords</th>
+                      <th>Signal (dBm)</th>
+                      <th>Category</th>
+                      <th>Speed / Ping</th>
+                      <th>Source</th>
+                      <th class="text-end">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="measurementsTableBody">
+                    <!-- Dynamic -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==========================================
+         TAB 4: AP RECOMMENDATIONS
+         ========================================== -->
+    <div class="tab-pane d-none" id="tab-recommendations">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center page-header gap-3 mb-3">
+        <div>
+          <div class="d-flex align-items-center gap-2">
+            <h2 class="fw-bold mb-0">Access-Point Placement Recommendations</h2>
+            <span class="badge bg-info text-dark fw-bold">Heuristic Engine</span>
+          </div>
+          <p class="text-muted small mb-0 mt-1">
+            Mathematical centroid optimization to resolve dead zones in <strong id="rec-room-name">Science Lecture Hall 204</strong>.
+          </p>
+        </div>
+        <div>
+          <button class="btn btn-outline-secondary btn-sm" onclick="switchTab('map')">
+            <i class="bi bi-arrow-left me-1"></i> Return to Map
+          </button>
+        </div>
+      </div>
+
+      <div class="notice-box notice-box-warning mb-4">
+        <i class="bi bi-shield-exclamation text-warning me-1"></i>
+        <strong>Planning Heuristic Advisory:</strong> Candidate coordinates are calculated via weighted geometric centroid of recorded weak signals. Actual RF propagation depends on walls, pillars, and occupant density. Always perform an active survey with a temporary AP before permanent installation.
+      </div>
+
+      <div class="row g-4 mb-4">
+        <div class="col-lg-7">
+          <div class="card card-sc h-100">
+            <div class="card-header-sc">
+              <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-bullseye text-info fs-5"></i>
+                <span>Map with Suggested Candidate AP</span>
+              </div>
+              <div class="small">
+                <span class="badge badge-candidate me-1">⭐ Candidate AP</span>
+                <span class="badge badge-ap me-1">📡 Active AP</span>
+                <span class="badge badge-weak">&bull; Dead Spot</span>
+              </div>
+            </div>
+            <div class="map-viewport p-2 text-center position-relative">
+              <canvas id="recCanvas" class="map-canvas"></canvas>
+            </div>
+            <div class="card-footer bg-white small text-muted">
+              Cyan target circle shows the algorithm's calculated optimal Access Point location to cover the rear dead zone.
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-5">
+          <div id="candidateCardsContainer" class="d-flex flex-column gap-3">
+            <!-- Candidate cards -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Targeted Weak Points Table -->
+      <div class="card card-sc mb-4">
+        <div class="card-header-sc">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-list-check text-danger fs-5"></i>
+            <span>Weak Points Targeted for Reinforcement</span>
+          </div>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0 small">
+              <thead class="table-light">
+                <tr>
+                  <th>#</th>
+                  <th>Location</th>
+                  <th>Coordinates</th>
+                  <th>Recorded Signal</th>
+                  <th>Deficit Level</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="targetedWeakTableBody">
+                <!-- Rows -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==========================================
+         TAB 5: BEFORE VS AFTER COMPARISON
+         ========================================== -->
+    <div class="tab-pane d-none" id="tab-comparison">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center page-header gap-3 mb-3">
+        <div>
+          <div class="d-flex align-items-center gap-2">
+            <h2 class="fw-bold mb-0">Before vs. After Network Verification</h2>
+            <span class="badge bg-success text-white fw-bold">Verification Engine</span>
+          </div>
+          <p class="text-muted small mb-0 mt-1">
+            Compare Wi-Fi signal before and after adding the recommended secondary access point.
+          </p>
+        </div>
+        <div>
+          <button class="btn btn-outline-secondary btn-sm" onclick="switchTab('map')">
+            <i class="bi bi-arrow-left me-1"></i> Classroom Map
+          </button>
+        </div>
+      </div>
+
+      <!-- Delta KPI Cards -->
+      <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-lg-3">
+          <div class="kpi-card shadow-sm border-start border-4 border-success">
+            <div class="kpi-label">Average Signal Boost</div>
+            <div class="kpi-value text-success">+13.5 dB</div>
+            <div class="kpi-subtext">-66.3 dBm &rarr; -52.8 dBm</div>
+          </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+          <div class="kpi-card shadow-sm border-start border-4 border-success">
+            <div class="kpi-label">Dead Zone Reduction</div>
+            <div class="kpi-value text-success">100% Drop</div>
+            <div class="kpi-subtext">40% weak &rarr; 0% weak spots</div>
+          </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+          <div class="kpi-card shadow-sm border-start border-4 border-info">
+            <div class="kpi-label">Download Speed Boost</div>
+            <div class="kpi-value text-info">+26.4 Mbps</div>
+            <div class="kpi-subtext">48.5 &rarr; 74.9 Mbps avg</div>
+          </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+          <div class="kpi-card shadow-sm border-start border-4 border-success">
+            <div class="kpi-label">Ping Latency Drop</div>
+            <div class="kpi-value text-success">-29.7 ms</div>
+            <div class="kpi-subtext">45.0 &rarr; 15.3 ms avg</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chart.js Bar Chart -->
+      <div class="card card-sc mb-4">
+        <div class="card-header-sc">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-bar-chart-fill text-primary fs-5"></i>
+            <span>Signal Strength Comparison by Desk Location</span>
+          </div>
+          <div class="small text-muted">Closer to 0 dBm is stronger</div>
+        </div>
+        <div class="card-body p-3">
+          <div style="height: 320px; position: relative;">
+            <canvas id="compChartCanvas"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Point-by-point Table -->
+      <div class="card card-sc mb-4">
+        <div class="card-header-sc">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-table text-primary fs-5"></i>
+            <span>Point-by-Point Survey Audit</span>
+          </div>
+          <span class="badge bg-light text-dark border">15 Matched Desks</span>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0 small">
+              <thead class="table-light">
+                <tr>
+                  <th>Desk / Location</th>
+                  <th>Coords</th>
+                  <th>Before Signal</th>
+                  <th>After Signal</th>
+                  <th>Change (&Delta; dB)</th>
+                  <th>Speed Before &rarr; After</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="comparisonTableBody">
+                <!-- Rows -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==========================================
+         TAB 6: EXECUTIVE AUDIT REPORT
+         ========================================== -->
+    <div class="tab-pane d-none" id="tab-report">
+      <div class="d-flex justify-content-between align-items-center mb-3 no-print">
+        <button class="btn btn-outline-secondary btn-sm" onclick="switchTab('dashboard')">
+          <i class="bi bi-arrow-left me-1"></i> Dashboard
+        </button>
+        <button onclick="window.print()" class="btn btn-primary btn-sm fw-semibold shadow-sm">
+          <i class="bi bi-printer me-1"></i> Print / Save as PDF
+        </button>
+      </div>
+
+      <div class="card card-sc p-4 p-md-5 bg-white shadow-sm border">
+        <div class="border-bottom pb-4 mb-4 d-flex justify-content-between align-items-start flex-wrap gap-3">
+          <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+              <i class="bi bi-broadcast-pin text-primary fs-3"></i>
+              <h2 class="fw-bold mb-0 text-dark">SmartClass Connect</h2>
+            </div>
+            <h5 class="text-muted fw-normal mb-0">Classroom Wi-Fi Coverage Audit & Optimization Report</h5>
+          </div>
+          <div class="text-md-end small text-muted">
+            <div><strong>Audit Target:</strong> <span id="rep-room-name">Science Lecture Hall 204</span></div>
+            <div><strong>Date Generated:</strong> <span id="rep-date"></span></div>
+            <div><strong>Report Scope:</strong> Physical Coverage Planning</div>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-4">
+          <div class="col-md-3">
+            <div class="p-3 bg-light rounded border">
+              <div class="text-muted small text-uppercase fw-bold">Room Dimensions</div>
+              <div class="fs-5 fw-bold text-dark" id="rep-dims">12.0m × 8.0m</div>
+              <div class="small text-muted" id="rep-area">96 sq. meters</div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="p-3 bg-light rounded border">
+              <div class="text-muted small text-uppercase fw-bold">Surveyed Points</div>
+              <div class="fs-5 fw-bold text-primary" id="rep-total-points">15 Locations</div>
+              <div class="small text-muted">Across classroom floor</div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="p-3 bg-light rounded border">
+              <div class="text-muted small text-uppercase fw-bold">Average Signal</div>
+              <div class="fs-5 fw-bold text-danger" id="rep-avg-signal">-66.3 dBm</div>
+              <div class="small text-muted">Target: &ge; -60 dBm</div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="p-3 bg-light rounded border">
+              <div class="text-muted small text-uppercase fw-bold">Coverage Status</div>
+              <div class="fs-5 fw-bold text-danger" id="rep-status">Needs Attention</div>
+              <div class="small text-muted" id="rep-weak-count">6 weak spots (40%)</div>
+            </div>
+          </div>
+        </div>
+
+        <h5 class="fw-bold text-dark border-bottom pb-2 mb-3">1. Executive Coverage Summary</h5>
+        <div class="table-responsive mb-4">
+          <table class="table table-bordered table-sm small align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>Category</th>
+                <th>Threshold</th>
+                <th>Locations Count</th>
+                <th>Coverage %</th>
+                <th>Expected User Experience</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="badge badge-strong">Strong</span></td>
+                <td>&ge; -60.0 dBm</td>
+                <td id="rep-strong-cnt">6</td>
+                <td id="rep-strong-pct">40%</td>
+                <td>Smooth 4K/HD streaming, responsive LMS exams, instant page loads.</td>
+              </tr>
+              <tr>
+                <td><span class="badge badge-moderate">Moderate</span></td>
+                <td>-60.0 to -70.0 dBm</td>
+                <td id="rep-mod-cnt">3</td>
+                <td id="rep-mod-pct">20%</td>
+                <td>Acceptable for basic browsing; occasional buffering during peak hours.</td>
+              </tr>
+              <tr class="table-danger bg-opacity-25">
+                <td><span class="badge badge-weak">Weak (Dead Zone)</span></td>
+                <td>&lt; -70.0 dBm</td>
+                <td id="rep-weak-cnt2">6</td>
+                <td id="rep-weak-pct2">40%</td>
+                <td>Frequent disconnections, high latency, student exam submission timeouts.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h5 class="fw-bold text-dark border-bottom pb-2 mb-3">2. Access Point Configuration & Heuristic Suggestion</h5>
+        <div class="row g-3 mb-4">
+          <div class="col-md-6">
+            <h6 class="fw-bold small text-muted text-uppercase mb-2">Current Physical Access Points</h6>
+            <ul class="list-group small" id="rep-ap-list">
+              <!-- APs -->
+            </ul>
+          </div>
+          <div class="col-md-6">
+            <h6 class="fw-bold small text-muted text-uppercase mb-2">Recommended AP Placement</h6>
+            <div class="p-3 border rounded bg-light small" id="rep-rec-box">
+              <strong class="text-primary">Option A: Primary Weak-Zone Centroid</strong>
+              <div class="badge bg-primary ms-1">Position (10.0m, 6.0m)</div>
+              <p class="text-muted mt-2 mb-1">Positioned at (10.0m, 6.0m) directly targeting the geometric center of gravity for 6 dead spots in the rear right rows.</p>
+              <div class="text-success fw-bold"><i class="bi bi-graph-up-arrow me-1"></i> Estimated signal boost of +15 to +25 dBm for rear desks.</div>
+            </div>
+          </div>
+        </div>
+
+        <h5 class="fw-bold text-dark border-bottom pb-2 mb-2">3. Responsible Network Testing Statement</h5>
+        <p class="text-muted small mb-0">
+          SmartClass Connect does not capture network packets, record user passwords, or inspect browsing traffic. All suggestions are geometric heuristics; active on-site verification with temporary hardware is strongly recommended prior to permanent installation.
+        </p>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Create Room Modal -->
+  <div class="modal fade" id="newRoomModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form onsubmit="handleCreateRoom(event)">
+          <div class="modal-header bg-primary text-white">
+            <h5 class="modal-title"><i class="bi bi-door-plus me-2"></i>Create Classroom Map</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label class="form-label fw-bold">Classroom Name *</label>
+              <input type="text" class="form-control" id="newRoomName" placeholder="e.g. Computer Science Lab 105" required>
+            </div>
+            <div class="row g-2 mb-3">
+              <div class="col-6">
+                <label class="form-label fw-bold">Length (meters) *</label>
+                <input type="number" step="0.5" min="2" max="100" class="form-control" id="newRoomLength" value="12.0" required>
+              </div>
+              <div class="col-6">
+                <label class="form-label fw-bold">Width (meters) *</label>
+                <input type="number" step="0.5" min="2" max="100" class="form-control" id="newRoomWidth" value="8.0" required>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Description (Optional)</label>
+              <textarea class="form-control" id="newRoomDesc" rows="2" placeholder="e.g. Tiered seating room with concrete walls."></textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary fw-semibold">Create Room</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Point Modal (triggered by canvas click) -->
+  <div class="modal fade" id="addPointModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form onsubmit="handleModalAddPoint(event)">
+          <div class="modal-header bg-primary text-white">
+            <h5 class="modal-title"><i class="bi bi-geo-alt-fill me-2"></i>Add Wi-Fi Measurement Point</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="row g-2 mb-3">
+              <div class="col-6">
+                <label class="form-label fw-bold">X (meters) *</label>
+                <input type="number" step="0.1" min="0" class="form-control" id="modalPtX" required>
+              </div>
+              <div class="col-6">
+                <label class="form-label fw-bold">Y (meters) *</label>
+                <input type="number" step="0.1" min="0" class="form-control" id="modalPtY" required>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label fw-bold">Signal Strength (dBm) *</label>
+              <input type="number" step="0.5" min="-100" max="-20" class="form-control" id="modalPtSignal" value="-65" required>
+              <div class="form-text">Negative number (e.g. -45 is strong, -85 is weak)</div>
+            </div>
+            <div class="row g-2 mb-3">
+              <div class="col-6">
+                <label class="form-label">Speed (Mbps)</label>
+                <input type="number" step="0.1" min="0" class="form-control" id="modalPtSpeed" placeholder="e.g. 50">
+              </div>
+              <div class="col-6">
+                <label class="form-label">Latency (ms)</label>
+                <input type="number" step="1" min="0" class="form-control" id="modalPtLatency" placeholder="e.g. 25">
+              </div>
+            </div>
+            <div class="row g-2 mb-3">
+              <div class="col-6">
+                <label class="form-label">Desk Label</label>
+                <input type="text" class="form-control" id="modalPtLabel" placeholder="e.g. Desk Clicked">
+              </div>
+              <div class="col-6">
+                <label class="form-label">Data Source</label>
+                <select class="form-select" id="modalPtSource">
+                  <option value="measured">Measured</option>
+                  <option value="simulated">Simulated</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary fw-semibold">Save Measurement</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add AP Modal -->
+  <div class="modal fade" id="addApModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form onsubmit="handleAddAP(event)">
+          <div class="modal-header bg-dark text-white">
+            <h5 class="modal-title"><i class="bi bi-router-fill text-primary me-2"></i>Register Access Point</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label class="form-label fw-bold">AP Name *</label>
+              <input type="text" class="form-control" id="newApName" placeholder="e.g. AP-Front-Podium" required>
+            </div>
+            <div class="row g-2 mb-3">
+              <div class="col-6">
+                <label class="form-label fw-bold">X (meters) *</label>
+                <input type="number" step="0.1" min="0" class="form-control" id="newApX" value="1.5" required>
+              </div>
+              <div class="col-6">
+                <label class="form-label fw-bold">Y (meters) *</label>
+                <input type="number" step="0.1" min="0" class="form-control" id="newApY" value="4.0" required>
+              </div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Channel</label>
+              <input type="text" class="form-control" id="newApChannel" value="5 GHz Ch 36">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary fw-semibold">Save AP</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="bg-white border-top py-3 mt-auto no-print">
+    <div class="container-fluid px-lg-4 d-flex flex-column flex-sm-row justify-content-between align-items-center gap-2 text-muted small">
+      <div>
+        <strong>SmartClass Connect</strong> &copy; 2026 &bull; AI-Assisted Wi-Fi Coverage Optimization System.
+      </div>
+      <div>
+        <span class="badge badge-strong me-2">Green: &ge; -60 dBm</span>
+        <span class="badge badge-moderate me-2">Yellow: -60 to -70 dBm</span>
+        <span class="badge badge-weak">Red: &lt; -70 dBm</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Bootstrap 5 JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- SmartClass Connect Client Application Engine -->
+  <script>
+    // ==========================================
+    // 1. Data Store & Hackathon Demo Seeder
+    // ==========================================
+    const DEFAULT_DEMO_DATA = {
+      activeRoomId: 'room_1',
+      activeSessionId: 'session_baseline',
+      classrooms: [
+        {
+          id: 'room_1',
+          name: 'Science Lecture Hall 204',
+          length: 12.0,
+          width: 8.0,
+          description: '120-seat tiered lecture hall with podium at the front (x=0) and student seating rows extending to the back (x=12).',
+          accessPoints: [
+            { id: 'ap_1', name: 'AP-Front-Podium (Cisco)', x: 1.5, y: 4.0, channel: '5 GHz Ch 36', is_proposed: 0 }
+          ],
+          sessions: [
+            { id: 'session_baseline', name: 'Baseline (Before Upgrade)', type: 'baseline' },
+            { id: 'session_followup', name: 'Post-Upgrade (After Candidate AP Added)', type: 'followup' }
+          ],
+          measurements: [
+            // Baseline Session (Front AP: strong in front, dead zones in rear)
+            { id: 1, session_id: 'session_baseline', x: 1.0, y: 1.5, signal_dbm: -44.0, download_mbps: 92.5, latency_ms: 11.0, source: 'simulated', location_label: 'Front Left (Podium)' },
+            { id: 2, session_id: 'session_baseline', x: 1.5, y: 4.0, signal_dbm: -38.0, download_mbps: 98.0, latency_ms: 9.0, source: 'simulated', location_label: 'Front Center (AP Base)' },
+            { id: 3, session_id: 'session_baseline', x: 1.0, y: 6.5, signal_dbm: -47.0, download_mbps: 88.0, latency_ms: 13.0, source: 'simulated', location_label: 'Front Right' },
+            { id: 4, session_id: 'session_baseline', x: 4.0, y: 1.5, signal_dbm: -55.0, download_mbps: 74.0, latency_ms: 16.0, source: 'simulated', location_label: 'Row 2 Left' },
+            { id: 5, session_id: 'session_baseline', x: 4.0, y: 4.0, signal_dbm: -51.0, download_mbps: 81.0, latency_ms: 14.0, source: 'simulated', location_label: 'Row 2 Center' },
+            { id: 6, session_id: 'session_baseline', x: 4.0, y: 6.5, signal_dbm: -58.0, download_mbps: 69.0, latency_ms: 18.0, source: 'simulated', location_label: 'Row 2 Right' },
+            { id: 7, session_id: 'session_baseline', x: 7.0, y: 1.5, signal_dbm: -67.0, download_mbps: 45.0, latency_ms: 28.0, source: 'simulated', location_label: 'Row 4 Left' },
+            { id: 8, session_id: 'session_baseline', x: 7.0, y: 4.0, signal_dbm: -64.0, download_mbps: 52.0, latency_ms: 24.0, source: 'simulated', location_label: 'Row 4 Center' },
+            { id: 9, session_id: 'session_baseline', x: 7.0, y: 6.5, signal_dbm: -72.0, download_mbps: 31.0, latency_ms: 48.0, source: 'simulated', location_label: 'Row 4 Right' },
+            { id: 10, session_id: 'session_baseline', x: 10.0, y: 1.5, signal_dbm: -76.0, download_mbps: 22.0, latency_ms: 65.0, source: 'simulated', location_label: 'Rear Left Corner' },
+            { id: 11, session_id: 'session_baseline', x: 10.0, y: 4.0, signal_dbm: -74.0, download_mbps: 28.0, latency_ms: 55.0, source: 'simulated', location_label: 'Rear Center' },
+            { id: 12, session_id: 'session_baseline', x: 10.0, y: 6.5, signal_dbm: -83.0, download_mbps: 12.0, latency_ms: 95.0, source: 'simulated', location_label: 'Rear Right Corner' },
+            { id: 13, session_id: 'session_baseline', x: 11.5, y: 1.5, signal_dbm: -81.0, download_mbps: 14.0, latency_ms: 85.0, source: 'simulated', location_label: 'Last Row Left' },
+            { id: 14, session_id: 'session_baseline', x: 11.5, y: 4.0, signal_dbm: -79.0, download_mbps: 18.0, latency_ms: 72.0, source: 'simulated', location_label: 'Last Row Center' },
+            { id: 15, session_id: 'session_baseline', x: 11.5, y: 6.5, signal_dbm: -88.0, download_mbps: 6.0, latency_ms: 130.0, source: 'simulated', location_label: 'Last Row Right' },
+
+            // Follow-up Session (Secondary AP placed at rear: x=10, y=6)
+            { id: 16, session_id: 'session_followup', x: 1.0, y: 1.5, signal_dbm: -45.0, download_mbps: 91.0, latency_ms: 12.0, source: 'simulated', location_label: 'Front Left (Podium)' },
+            { id: 17, session_id: 'session_followup', x: 1.5, y: 4.0, signal_dbm: -39.0, download_mbps: 96.0, latency_ms: 10.0, source: 'simulated', location_label: 'Front Center (AP Base)' },
+            { id: 18, session_id: 'session_followup', x: 1.0, y: 6.5, signal_dbm: -48.0, download_mbps: 86.0, latency_ms: 14.0, source: 'simulated', location_label: 'Front Right' },
+            { id: 19, session_id: 'session_followup', x: 4.0, y: 1.5, signal_dbm: -54.0, download_mbps: 75.0, latency_ms: 15.0, source: 'simulated', location_label: 'Row 2 Left' },
+            { id: 20, session_id: 'session_followup', x: 4.0, y: 4.0, signal_dbm: -50.0, download_mbps: 83.0, latency_ms: 13.0, source: 'simulated', location_label: 'Row 2 Center' },
+            { id: 21, session_id: 'session_followup', x: 4.0, y: 6.5, signal_dbm: -53.0, download_mbps: 79.0, latency_ms: 15.0, source: 'simulated', location_label: 'Row 2 Right' },
+            { id: 22, session_id: 'session_followup', x: 7.0, y: 1.5, signal_dbm: -60.0, download_mbps: 65.0, latency_ms: 19.0, source: 'simulated', location_label: 'Row 4 Left' },
+            { id: 23, session_id: 'session_followup', x: 7.0, y: 4.0, signal_dbm: -52.0, download_mbps: 78.0, latency_ms: 14.0, source: 'simulated', location_label: 'Row 4 Center' },
+            { id: 24, session_id: 'session_followup', x: 7.0, y: 6.5, signal_dbm: -50.0, download_mbps: 82.0, latency_ms: 13.0, source: 'simulated', location_label: 'Row 4 Right' },
+            { id: 25, session_id: 'session_followup', x: 10.0, y: 1.5, signal_dbm: -63.0, download_mbps: 58.0, latency_ms: 22.0, source: 'simulated', location_label: 'Rear Left Corner' },
+            { id: 26, session_id: 'session_followup', x: 10.0, y: 4.0, signal_dbm: -49.0, download_mbps: 85.0, latency_ms: 12.0, source: 'simulated', location_label: 'Rear Center' },
+            { id: 27, session_id: 'session_followup', x: 10.0, y: 6.5, signal_dbm: -42.0, download_mbps: 94.0, latency_ms: 11.0, source: 'simulated', location_label: 'Rear Right Corner' },
+            { id: 28, session_id: 'session_followup', x: 11.5, y: 1.5, signal_dbm: -66.0, download_mbps: 50.0, latency_ms: 25.0, source: 'simulated', location_label: 'Last Row Left' },
+            { id: 29, session_id: 'session_followup', x: 11.5, y: 4.0, signal_dbm: -53.0, download_mbps: 79.0, latency_ms: 16.0, source: 'simulated', location_label: 'Last Row Center' },
+            { id: 30, session_id: 'session_followup', x: 11.5, y: 6.5, signal_dbm: -45.0, download_mbps: 90.0, latency_ms: 12.0, source: 'simulated', location_label: 'Last Row Right' }
+          ]
+        }
+      ]
+    };
+
+    let AppState = JSON.parse(localStorage.getItem('smartclass_connect_data')) || DEFAULT_DEMO_DATA;
+
+    function saveState() {
+      localStorage.setItem('smartclass_connect_data', JSON.stringify(AppState));
+    }
+
+    function loadDemoDataset() {
+      AppState = JSON.parse(JSON.stringify(DEFAULT_DEMO_DATA));
+      saveState();
+      showAlert('Hackathon demo dataset loaded! Science Lecture Hall 204 is ready.', 'success');
+      switchTab('map');
+    }
+
+    function getCurrentRoom() {
+      return AppState.classrooms.find(c => c.id === AppState.activeRoomId) || AppState.classrooms[0];
+    }
+
+    function getRoomMeasurements(room, sessionId = null) {
+      const sid = sessionId || AppState.activeSessionId;
+      if (!sid || sid === 'all') return room.measurements;
+      return room.measurements.filter(m => m.session_id === sid);
+    }
+
+    // ==========================================
+    // 2. Navigation & View Switching
+    // ==========================================
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-pane').forEach(el => el.classList.add('d-none'));
+      document.querySelectorAll('.nav-tab-link').forEach(el => el.classList.remove('active', 'fw-bold'));
+
+      const targetTab = document.getElementById('tab-' + tabId);
+      const targetNav = document.getElementById('nav-' + tabId);
+
+      if (targetTab) targetTab.classList.remove('d-none');
+      if (targetNav) targetNav.classList.add('active', 'fw-bold');
+
+      if (tabId === 'dashboard') renderDashboard();
+      if (tabId === 'map') renderClassroomMap();
+      if (tabId === 'measurements') renderMeasurements();
+      if (tabId === 'recommendations') renderRecommendations();
+      if (tabId === 'comparison') renderComparison();
+      if (tabId === 'report') renderReport();
+
+      window.scrollTo(0, 0);
+    }
+
+    function showAlert(msg, type = 'info') {
+      const container = document.getElementById('alertContainer');
+      container.innerHTML = `
+        <div class="alert alert-${type} alert-dismissible fade show shadow-sm d-flex align-items-center" role="alert">
+          <i class="bi bi-info-circle-fill me-2 fs-5"></i>
+          <div>${msg}</div>
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+      `;
+      setTimeout(() => { container.innerHTML = ''; }, 5000);
+    }
+
+    // ==========================================
+    // 3. Statistical Analysis Calculations
+    // ==========================================
+    function calculateCoverage(measurements) {
+      if (!measurements || measurements.length === 0) {
+        return { total: 0, strong: 0, moderate: 0, weak: 0, strongPct: 0, modPct: 0, weakPct: 0, avgSignal: null, avgSpeed: null, avgLatency: null };
+      }
+      const total = measurements.length;
+      let strong = 0, mod = 0, weak = 0;
+      let sumSig = 0, sumSpeed = 0, cntSpeed = 0, sumLat = 0, cntLat = 0;
+
+      measurements.forEach(m => {
+        const sig = parseFloat(m.signal_dbm);
+        sumSig += sig;
+        if (sig >= -60) strong++;
+        else if (sig >= -70) mod++;
+        else weak++;
+
+        if (m.download_mbps) { sumSpeed += parseFloat(m.download_mbps); cntSpeed++; }
+        if (m.latency_ms) { sumLat += parseFloat(m.latency_ms); cntLat++; }
+      });
+
+      return {
+        total,
+        strong,
+        moderate: mod,
+        weak,
+        strongPct: Math.round((strong / total) * 100),
+        modPct: Math.round((mod / total) * 100),
+        weakPct: Math.round((weak / total) * 100),
+        avgSignal: (sumSig / total).toFixed(1),
+        avgSpeed: cntSpeed > 0 ? (sumSpeed / cntSpeed).toFixed(1) : null,
+        avgLatency: cntLat > 0 ? (sumLat / cntLat).toFixed(1) : null
+      };
+    }
+
+    // ==========================================
+    // 4. Dashboard Renderer
+    // ==========================================
+    function renderDashboard() {
+      const rooms = AppState.classrooms;
+      let totalPts = 0, totalWeak = 0, roomsAttention = 0;
+
+      const container = document.getElementById('classroomCardsContainer');
+      let html = '<div class="row g-3">';
+
+      rooms.forEach(room => {
+        const stats = calculateCoverage(room.measurements);
+        totalPts += stats.total;
+        totalWeak += stats.weak;
+        if (stats.weak > 0) roomsAttention++;
+
+        let badgeClass = 'badge-strong', badgeText = 'Healthy';
+        if (stats.total === 0) { badgeClass = 'bg-secondary'; badgeText = 'No Data'; }
+        else if (stats.weak > 0) { badgeClass = 'badge-weak'; badgeText = 'Needs Fix'; }
+        else if (stats.moderate > 0) { badgeClass = 'badge-moderate'; badgeText = 'Moderate'; }
+
+        html += `
+          <div class="col-md-6">
+            <div class="card border rounded-3 p-3 h-100 shadow-sm">
+              <div class="d-flex justify-content-between align-items-start mb-2">
+                <h5 class="fw-bold mb-0">${room.name}</h5>
+                <span class="badge ${badgeClass}">${badgeText}</span>
+              </div>
+              <p class="text-muted small mb-2 text-truncate">${room.description || 'Classroom floor plan'}</p>
+              <div class="row g-2 small text-muted mb-3 bg-light p-2 rounded">
+                <div class="col-6"><strong>Dimensions:</strong> ${room.length}m × ${room.width}m</div>
+                <div class="col-6"><strong>APs:</strong> ${room.accessPoints.length} active</div>
+                <div class="col-6"><strong>Survey Points:</strong> ${stats.total}</div>
+                <div class="col-6"><strong>Weak Spots:</strong> <span class="${stats.weak > 0 ? 'text-danger fw-bold' : 'text-success'}">${stats.weak} (${stats.weakPct}%)</span></div>
+              </div>
+              <div class="mt-auto d-flex justify-content-between align-items-center">
+                <button class="btn btn-sm btn-primary fw-semibold" onclick="selectRoom('${room.id}', 'map')">
+                  <i class="bi bi-map me-1"></i> Open Map
+                </button>
+                <button class="btn btn-sm btn-outline-info text-dark" onclick="selectRoom('${room.id}', 'recommendations')">
+                  <i class="bi bi-magic me-1"></i> Recommendations
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+
+      html += '</div>';
+      container.innerHTML = html;
+
+      document.getElementById('kpi-total-rooms').innerText = rooms.length;
+      document.getElementById('kpi-total-points').innerText = totalPts;
+      document.getElementById('kpi-weak-points').innerText = totalWeak;
+      document.getElementById('kpi-rooms-attention').innerText = roomsAttention;
+    }
+
+    function selectRoom(roomId, targetTab) {
+      AppState.activeRoomId = roomId;
+      saveState();
+      switchTab(targetTab);
+    }
+
+    // ==========================================
+    // 5. Canvas Floor Map Engine
+    // ==========================================
+    let showHeatmap = false;
+    let showLabels = true;
+
+    function renderClassroomMap() {
+      const room = getCurrentRoom();
+      document.getElementById('map-room-title').innerText = room.name;
+      document.getElementById('map-room-subtext').innerText = 
+        `Dimensions: ${room.length}m × ${room.width}m • ${room.accessPoints.length} Access Point(s) • Session: ${AppState.activeSessionId}`;
+
+      // Populate Session dropdown
+      const sessSelect = document.getElementById('mapSessionSelect');
+      sessSelect.innerHTML = room.sessions.map(s => 
+        `<option value="${s.id}" ${s.id === AppState.activeSessionId ? 'selected' : ''}>${s.name}</option>`
+      ).join('');
+
+      const measurements = getRoomMeasurements(room);
+      const stats = calculateCoverage(measurements);
+
+      // Update sidebar coverage stats
+      document.getElementById('map-points-badge').innerText = `${stats.total} Points`;
+      document.getElementById('map-strong-pct').innerText = `${stats.strongPct}% Strong`;
+      document.getElementById('prog-strong').style.width = `${stats.strongPct}%`;
+      document.getElementById('prog-moderate').style.width = `${stats.modPct}%`;
+      document.getElementById('prog-weak').style.width = `${stats.weakPct}%`;
+
+      document.getElementById('stat-strong-cnt').innerText = stats.strong;
+      document.getElementById('stat-mod-cnt').innerText = stats.moderate;
+      document.getElementById('stat-weak-cnt').innerText = stats.weak;
+
+      document.getElementById('stat-avg-signal').innerText = stats.avgSignal ? `${stats.avgSignal} dBm` : '—';
+      document.getElementById('stat-avg-speed').innerText = stats.avgSpeed ? `${stats.avgSpeed} Mbps` : '—';
+      document.getElementById('stat-avg-latency').innerText = stats.avgLatency ? `${stats.avgLatency} ms` : '—';
+
+      const alertBox = document.getElementById('coverage-alert-box');
+      if (stats.weak > 0) {
+        alertBox.innerHTML = `
+          <div class="alert alert-danger py-2 px-3 small mb-0 d-flex align-items-center justify-content-between">
+            <span><i class="bi bi-exclamation-octagon-fill me-1"></i> ${stats.weak} dead spot(s) detected.</span>
+            <button class="btn btn-danger btn-sm py-0 px-2 fw-semibold" onclick="switchTab('recommendations')">Fix Zone</button>
+          </div>
+        `;
+        document.getElementById('map-health-badge').className = 'badge badge-weak';
+        document.getElementById('map-health-badge').innerText = 'Needs Attention';
+      } else {
+        alertBox.innerHTML = `
+          <div class="alert alert-success py-2 px-3 small mb-0">
+            <i class="bi bi-check-circle-fill me-1"></i> Optimal coverage across room!
+          </div>
+        `;
+        document.getElementById('map-health-badge').className = 'badge badge-strong';
+        document.getElementById('map-health-badge').innerText = 'Healthy Coverage';
+      }
+
+      // Render AP list
+      const apContainer = document.getElementById('apListContainer');
+      if (room.accessPoints.length === 0) {
+        apContainer.innerHTML = '<p class="text-muted small p-2 mb-0 text-center">No AP registered yet.</p>';
+      } else {
+        apContainer.innerHTML = room.accessPoints.map(ap => `
+          <div class="d-flex justify-content-between align-items-center p-2 border-bottom">
+            <div>
+              <strong class="small text-dark">📡 ${ap.name}</strong>
+              ${ap.is_proposed ? '<span class="badge badge-candidate ms-1">Proposed</span>' : ''}
+              <div class="text-muted" style="font-size:0.75rem;">Coords: (${ap.x}m, ${ap.y}m) • ${ap.channel || 'Auto'}</div>
+            </div>
+            <button class="btn btn-sm btn-link text-danger p-0" onclick="deleteAP('${ap.id}')"><i class="bi bi-trash"></i></button>
+          </div>
+        `).join('');
+      }
+
+      drawCanvasMap('floorCanvas', room, measurements, [], true);
+    }
+
+    function changeSession(sessionId) {
+      AppState.activeSessionId = sessionId;
+      saveState();
+      renderClassroomMap();
+    }
+
+    function toggleHeatmap() {
+      showHeatmap = !showHeatmap;
+      const btn = document.getElementById('btnToggleHeatmap');
+      btn.classList.toggle('btn-primary', showHeatmap);
+      btn.classList.toggle('btn-outline-primary', !showHeatmap);
+      drawCanvasMap('floorCanvas', getCurrentRoom(), getRoomMeasurements(getCurrentRoom()), [], true);
+    }
+
+    function toggleLabels() {
+      showLabels = !showLabels;
+      drawCanvasMap('floorCanvas', getCurrentRoom(), getRoomMeasurements(getCurrentRoom()), [], true);
+    }
+
+    // Generic Canvas drawing function
+    function drawCanvasMap(canvasId, room, measurements, candidates = [], allowClick = false) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const tooltip = document.getElementById('map-tooltip');
+
+      const dpr = window.devicePixelRatio || 1;
+      const displayWidth = Math.max(320, canvas.parentElement.clientWidth - 16);
+      const ratio = room.width / room.length;
+      const displayHeight = Math.max(300, Math.min(500, displayWidth * ratio + 60));
+
+      canvas.width = displayWidth * dpr;
+      canvas.height = displayHeight * dpr;
+      canvas.style.width = displayWidth + 'px';
+      canvas.style.height = displayHeight + 'px';
+
+      ctx.resetTransform();
+      ctx.scale(dpr, dpr);
+
+      const padding = 40;
+      const availW = displayWidth - padding * 2;
+      const availH = displayHeight - padding * 2;
+      const scale = Math.min(availW / room.length, availH / room.width);
+
+      const originX = padding + (availW - room.length * scale) / 2;
+      const originY = padding + (availH - room.width * scale) / 2;
+
+      ctx.clearRect(0, 0, displayWidth, displayHeight);
+
+      // Floor rectangle
+      const floorW = room.length * scale;
+      const floorH = room.width * scale;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(originX, originY, floorW, floorH);
+
+      // IDW Heatmap Interpolation
+      if (showHeatmap && measurements.length >= 2) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(originX, originY, floorW, floorH);
+        ctx.clip();
+
+        const step = 1.0;
+        const tileSize = Math.max(10, scale * step);
+        for (let x = 0; x <= room.length; x += step) {
+          for (let y = 0; y <= room.width; y += step) {
+            let sumW = 0, sumSig = 0;
+            measurements.forEach(m => {
+              const d = Math.hypot(x - m.x, y - m.y);
+              const w = 1 / Math.max(0.05, Math.pow(d, 2));
+              sumW += w;
+              sumSig += w * m.signal_dbm;
+            });
+            const estSig = sumSig / sumW;
+            const cx = originX + x * scale;
+            const cy = originY + y * scale;
+
+            let color = 'rgba(16, 185, 129, 0.28)'; // Strong
+            if (estSig < -70) color = 'rgba(239, 68, 68, 0.28)'; // Weak
+            else if (estSig < -60) color = 'rgba(245, 158, 11, 0.28)'; // Mod
+
+            ctx.fillStyle = color;
+            ctx.fillRect(cx - tileSize/2, cy - tileSize/2, tileSize, tileSize);
+          }
+        }
+        ctx.restore();
+      }
+
+      // Grid lines
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 1;
+      const step = room.length > 15 ? 2 : 1;
+      for (let x = 0; x <= room.length; x += step) {
+        const cx = originX + x * scale;
+        ctx.beginPath(); ctx.moveTo(cx, originY); ctx.lineTo(cx, originY + floorH); ctx.stroke();
+        ctx.fillStyle = '#64748b'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(x + 'm', cx, originY - 6);
+      }
+      for (let y = 0; y <= room.width; y += step) {
+        const cy = originY + y * scale;
+        ctx.beginPath(); ctx.moveTo(originX, cy); ctx.lineTo(originX + floorW, cy); ctx.stroke();
+        ctx.fillStyle = '#64748b'; ctx.font = '10px sans-serif'; ctx.textAlign = 'right';
+        ctx.fillText(y + 'm', originX - 6, cy + 3);
+      }
+
+      // Room border
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 2.5;
+      ctx.strokeRect(originX, originY, floorW, floorH);
+
+      // Draw Candidates
+      candidates.forEach(cand => {
+        const cx = originX + cand.x * scale;
+        const cy = originY + cand.y * scale;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.setLineDash([4, 3]);
+        ctx.arc(cx, cy, 24, 0, Math.PI * 2);
+        ctx.strokeStyle = '#06b6d4';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(cx, cy, 9, 0, Math.PI * 2);
+        ctx.fillStyle = '#0891b2';
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.fillStyle = '#0e7490';
+        ctx.font = 'bold 11px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`⭐ Candidate AP (${cand.x}m, ${cand.y}m)`, cx, cy - 26);
+        ctx.restore();
+      });
+
+      // Draw Existing APs
+      room.accessPoints.forEach(ap => {
+        const cx = originX + ap.x * scale;
+        const cy = originY + ap.y * scale;
+
+        ctx.save();
+        ctx.beginPath(); ctx.arc(cx, cy, 18, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(139, 92, 246, 0.3)'; ctx.lineWidth = 3; ctx.stroke();
+
+        ctx.beginPath(); ctx.arc(cx, cy, 8, 0, Math.PI * 2);
+        ctx.fillStyle = '#8b5cf6'; ctx.fill();
+        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+
+        ctx.fillStyle = '#5b21b6'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText(`📡 ${ap.name}`, cx, cy + 20);
+        ctx.restore();
+      });
+
+      // Draw Measurements
+      measurements.forEach(m => {
+        const cx = originX + m.x * scale;
+        const cy = originY + m.y * scale;
+        const sig = parseFloat(m.signal_dbm);
+
+        let color = '#10b981';
+        if (sig < -70) color = '#ef4444';
+        else if (sig < -60) color = '#f59e0b';
+
+        ctx.save();
+        if (sig < -70) {
+          ctx.shadowColor = 'rgba(239, 68, 68, 0.6)';
+          ctx.shadowBlur = 8;
+        }
+
+        ctx.beginPath();
+        ctx.arc(cx, cy, 6.5, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        if (showLabels) {
+          ctx.shadowBlur = 0;
+          ctx.fillStyle = '#1e293b';
+          ctx.font = '9px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(`${sig} dBm`, cx, cy - 9);
+        }
+        ctx.restore();
+      });
+
+      // Setup Canvas click & hover if enabled
+      if (allowClick) {
+        canvas.onclick = (e) => {
+          const rect = canvas.getBoundingClientRect();
+          const clickX = e.clientX - rect.left;
+          const clickY = e.clientY - rect.top;
+
+          const rx = (clickX - originX) / scale;
+          const ry = (clickY - originY) / scale;
+
+          if (rx >= 0 && rx <= room.length && ry >= 0 && ry <= room.width) {
+            document.getElementById('modalPtX').value = rx.toFixed(1);
+            document.getElementById('modalPtY').value = ry.toFixed(1);
+            const modal = new bootstrap.Modal(document.getElementById('addPointModal'));
+            modal.show();
+          }
+        };
+
+        canvas.onmousemove = (e) => {
+          const rect = canvas.getBoundingClientRect();
+          const mx = e.clientX - rect.left;
+          const my = e.clientY - rect.top;
+
+          let found = null;
+          measurements.forEach(m => {
+            const cx = originX + m.x * scale;
+            const cy = originY + m.y * scale;
+            if (Math.hypot(mx - cx, my - cy) <= 12) found = m;
+          });
+
+          if (found && tooltip) {
+            const sig = found.signal_dbm;
+            let status = 'Strong';
+            if (sig < -70) status = 'Weak';
+            else if (sig < -60) status = 'Moderate';
+
+            tooltip.innerHTML = `
+              <strong>${found.location_label || 'Survey Desk'}</strong><br>
+              Coords: (${found.x}m, ${found.y}m)<br>
+              Signal: <strong>${sig} dBm</strong> (${status})<br>
+              ${found.download_mbps ? `Speed: ${found.download_mbps} Mbps<br>` : ''}
+              ${found.latency_ms ? `Ping: ${found.latency_ms} ms<br>` : ''}
+              Source: <span class="badge bg-secondary">${found.source || 'simulated'}</span>
+            `;
+            tooltip.style.left = `${mx + 15}px`;
+            tooltip.style.top = `${my - 15}px`;
+            tooltip.style.display = 'block';
+          } else if (tooltip) {
+            tooltip.style.display = 'none';
+          }
+        };
+
+        canvas.onmouseleave = () => { if (tooltip) tooltip.style.display = 'none'; };
+      }
+    }
+
+    // ==========================================
+    // 6. Measurements Table & Import
+    // ==========================================
+    function renderMeasurements() {
+      const room = getCurrentRoom();
+      const measurements = getRoomMeasurements(room);
+      document.getElementById('table-point-count').innerText = `Recorded Survey Points (${measurements.length})`;
+
+      const tbody = document.getElementById('measurementsTableBody');
+      if (measurements.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">No measurements recorded yet. Add one using the form on the left!</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = measurements.map((m, idx) => {
+        const sig = parseFloat(m.signal_dbm);
+        let badge = '<span class="badge badge-strong">Strong</span>';
+        if (sig < -70) badge = '<span class="badge badge-weak">Weak</span>';
+        else if (sig < -60) badge = '<span class="badge badge-moderate">Moderate</span>';
+
+        return `
+          <tr>
+            <td>${idx + 1}</td>
+            <td><strong>${m.location_label || 'Survey Desk'}</strong></td>
+            <td>(${m.x}m, ${m.y}m)</td>
+            <td><strong>${sig} dBm</strong></td>
+            <td>${badge}</td>
+            <td>${m.download_mbps || '—'} Mbps / ${m.latency_ms || '—'} ms</td>
+            <td><span class="badge ${m.source === 'measured' ? 'bg-primary' : 'bg-secondary'}">${m.source}</span></td>
+            <td class="text-end">
+              <button class="btn btn-sm btn-link text-danger p-0" onclick="deleteMeasurement(${m.id})">
+                <i class="bi bi-trash"></i>
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function handleManualAdd(e) {
+      e.preventDefault();
+      const room = getCurrentRoom();
+      const x = parseFloat(document.getElementById('manX').value);
+      const y = parseFloat(document.getElementById('manY').value);
+      const signal_dbm = parseFloat(document.getElementById('manSignal').value);
+      const speed = document.getElementById('manSpeed').value;
+      const latency = document.getElementById('manLatency').value;
+      const label = document.getElementById('manLabel').value;
+      const source = document.getElementById('manSource').value;
+
+      if (x < 0 || x > room.length || y < 0 || y > room.width) {
+        alert(`Coordinates must be within room boundaries (0 to ${room.length}m X, 0 to ${room.width}m Y)`);
+        return;
+      }
+
+      room.measurements.push({
+        id: Date.now(),
+        session_id: AppState.activeSessionId,
+        x, y, signal_dbm,
+        download_mbps: speed ? parseFloat(speed) : null,
+        latency_ms: latency ? parseFloat(latency) : null,
+        location_label: label || `Desk (${x}m, ${y}m)`,
+        source
+      });
+
+      saveState();
+      showAlert('Measurement point added successfully!', 'success');
+      e.target.reset();
+      renderMeasurements();
+    }
+
+    function handleModalAddPoint(e) {
+      e.preventDefault();
+      const room = getCurrentRoom();
+      const x = parseFloat(document.getElementById('modalPtX').value);
+      const y = parseFloat(document.getElementById('modalPtY').value);
+      const signal_dbm = parseFloat(document.getElementById('modalPtSignal').value);
+      const speed = document.getElementById('modalPtSpeed').value;
+      const latency = document.getElementById('modalPtLatency').value;
+      const label = document.getElementById('modalPtLabel').value;
+      const source = document.getElementById('modalPtSource').value;
+
+      room.measurements.push({
+        id: Date.now(),
+        session_id: AppState.activeSessionId,
+        x, y, signal_dbm,
+        download_mbps: speed ? parseFloat(speed) : null,
+        latency_ms: latency ? parseFloat(latency) : null,
+        location_label: label || `Map Click (${x}m, ${y}m)`,
+        source
+      });
+
+      saveState();
+      bootstrap.Modal.getInstance(document.getElementById('addPointModal')).hide();
+      showAlert(`Added point at (${x}m, ${y}m): ${signal_dbm} dBm`, 'success');
+      renderClassroomMap();
+    }
+
+    function deleteMeasurement(id) {
+      const room = getCurrentRoom();
+      room.measurements = room.measurements.filter(m => m.id !== id);
+      saveState();
+      renderMeasurements();
+    }
+
+    function clearCurrentMeasurements() {
+      if (confirm('Clear all measurements for the current session?')) {
+        const room = getCurrentRoom();
+        room.measurements = room.measurements.filter(m => m.session_id !== AppState.activeSessionId);
+        saveState();
+        renderMeasurements();
+      }
+    }
+
+    function handleCSVUpload(input) {
+      const file = input.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const text = e.target.result;
+        const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        if (lines.length < 2) {
+          alert('CSV file is empty or missing data rows.');
+          return;
+        }
+
+        const room = getCurrentRoom();
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+        const xIdx = headers.indexOf('x');
+        const yIdx = headers.indexOf('y');
+        const sigIdx = headers.indexOf('signal_dbm');
+
+        if (xIdx === -1 || yIdx === -1 || sigIdx === -1) {
+          alert('Missing required columns: x,y,signal_dbm');
+          return;
+        }
+
+        let imported = 0;
+        for (let i = 1; i < lines.length; i++) {
+          const parts = lines[i].split(',').map(p => p.trim());
+          if (parts.length >= 3) {
+            const x = parseFloat(parts[xIdx]);
+            const y = parseFloat(parts[yIdx]);
+            const sig = parseFloat(parts[sigIdx]);
+
+            if (!isNaN(x) && !isNaN(y) && !isNaN(sig)) {
+              room.measurements.push({
+                id: Date.now() + i,
+                session_id: AppState.activeSessionId,
+                x, y, signal_dbm: sig,
+                download_mbps: parts[3] ? parseFloat(parts[3]) : null,
+                latency_ms: parts[4] ? parseFloat(parts[4]) : null,
+                source: parts[5] || 'simulated',
+                location_label: parts[6] || `Imported Desk ${i}`
+              });
+              imported++;
+            }
+          }
+        }
+
+        saveState();
+        showAlert(`Successfully imported ${imported} survey points!`, 'success');
+        renderMeasurements();
+        input.value = '';
+      };
+      reader.readAsText(file);
+    }
+
+    function exportCSV() {
+      const room = getCurrentRoom();
+      const measurements = getRoomMeasurements(room);
+      let csv = 'x,y,signal_dbm,download_mbps,latency_ms,source,location_label\n';
+      measurements.forEach(m => {
+        csv += `${m.x},${m.y},${m.signal_dbm},${m.download_mbps || ''},${m.latency_ms || ''},${m.source},"${m.location_label || ''}"\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${room.name.replace(/ /g, '_')}_wifi_data.csv`;
+      a.click();
+    }
+
+    function downloadTemplateCSV() {
+      const csv = 'x,y,signal_dbm,download_mbps,latency_ms,source,location_label\n1.0,1.5,-44,90,12,measured,Front Podium\n6.0,4.0,-65,45,28,measured,Center Row\n10.5,6.5,-82,10,95,measured,Rear Corner\n';
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'smartclass_template.csv';
+      a.click();
+    }
+
+    // ==========================================
+    // 7. AP Placement Recommendations Engine
+    // ==========================================
+    function calculateRecommendations(room, measurements) {
+      const weakPoints = measurements.filter(m => m.signal_dbm < -70);
+      if (weakPoints.length === 0) return null;
+
+      // Weighted centroid calculation
+      let sumW = 0, sumWX = 0, sumWY = 0;
+      weakPoints.forEach(p => {
+        const w = Math.max(1.0, -70.0 - p.signal_dbm);
+        sumW += w;
+        sumWX += w * p.x;
+        sumWY += w * p.y;
+      });
+
+      let optX = Math.round((sumWX / sumW) * 10) / 10;
+      let optY = Math.round((sumWY / sumW) * 10) / 10;
+
+      // Keep within margin
+      optX = Math.max(1.0, Math.min(room.length - 1.0, optX));
+      optY = Math.max(1.0, Math.min(room.width - 1.0, optY));
+
+      const candidates = [
+        {
+          id: 'cand_a',
+          name: 'Option A: Primary Weak-Zone Centroid (Recommended)',
+          x: optX,
+          y: optY,
+          targetedCount: weakPoints.length,
+          rationale: `Positioned at (${optX}m, ${optY}m) to target the geometric center of gravity for ${weakPoints.length} dead zone locations.`,
+          benefit: `Estimated signal boost of +15 dBm to +25 dBm for student desks in this section.`,
+          confidence: 'High Confidence (85%)',
+          mounting: 'Ceiling or high wall mount (2.5m - 3.0m height) facing downward'
+        }
+      ];
+
+      return { candidates, weakPoints };
+    }
+
+    function renderRecommendations() {
+      const room = getCurrentRoom();
+      document.getElementById('rec-room-name').innerText = room.name;
+
+      const measurements = getRoomMeasurements(room);
+      const rec = calculateRecommendations(room, measurements);
+
+      const cardsContainer = document.getElementById('candidateCardsContainer');
+      const tableBody = document.getElementById('targetedWeakTableBody');
+
+      if (!rec || rec.candidates.length === 0) {
+        cardsContainer.innerHTML = `
+          <div class="card card-sc p-4 text-center">
+            <i class="bi bi-check-circle text-success fs-1"></i>
+            <h5 class="mt-2">Coverage is Optimal!</h5>
+            <p class="text-muted small">No dead zones (&lt; -70 dBm) were detected in the current survey.</p>
+          </div>
+        `;
+        tableBody.innerHTML = '<tr><td colspan="6" class="text-center py-3 text-muted">No weak survey points identified.</td></tr>';
+        drawCanvasMap('recCanvas', room, measurements, [], false);
+        return;
+      }
+
+      // Draw map with candidate markers
+      drawCanvasMap('recCanvas', room, measurements, rec.candidates, false);
+
+      // Render Candidate Cards
+      cardsContainer.innerHTML = rec.candidates.map(cand => `
+        <div class="card card-sc border-2 border-primary shadow-sm">
+          <div class="card-header-sc bg-light">
+            <span class="fw-bold">${cand.name}</span>
+            <span class="badge bg-white text-dark border">${cand.confidence}</span>
+          </div>
+          <div class="card-body p-3">
+            <div class="d-flex justify-content-between p-2 bg-light rounded mb-3">
+              <div>
+                <span class="text-muted small d-block">Recommended Coords:</span>
+                <strong class="fs-4 text-primary">(${cand.x}m, ${cand.y}m)</strong>
+              </div>
+              <div class="text-end">
+                <span class="text-muted small d-block">Targets:</span>
+                <span class="badge bg-danger fs-6">${cand.targetedCount} Dead Desks</span>
+              </div>
+            </div>
+            <p class="small text-muted mb-2"><strong>Why this spot:</strong> ${cand.rationale}</p>
+            <p class="small text-success mb-2"><strong>Expected benefit:</strong> ${cand.benefit}</p>
+            <p class="small text-muted mb-3"><strong>Mounting:</strong> ${cand.mounting}</p>
+            <button class="btn btn-primary btn-sm w-100 fw-semibold" onclick="applyCandidateAsAP(${cand.x}, ${cand.y})">
+              <i class="bi bi-plus-circle-dotted me-1"></i> Add as Proposed AP to Floor Plan
+            </button>
+          </div>
+        </div>
+      `).join('');
+
+      // Targeted Weak Points Table
+      tableBody.innerHTML = rec.weakPoints.map((pt, i) => `
+        <tr>
+          <td>${i + 1}</td>
+          <td><strong>${pt.location_label || 'Rear Desk'}</strong></td>
+          <td>(${pt.x}m, ${pt.y}m)</td>
+          <td><span class="badge badge-weak">${pt.signal_dbm} dBm</span></td>
+          <td>
+            <div class="progress" style="height:6px; width:100px;">
+              <div class="progress-bar bg-danger" style="width:${(-70 - pt.signal_dbm) * 6}%"></div>
+            </div>
+          </td>
+          <td><span class="badge bg-success-subtle text-success border"><i class="bi bi-check-circle me-1"></i>Covered</span></td>
+        </tr>
+      `).join('');
+    }
+
+    function applyCandidateAsAP(x, y) {
+      const room = getCurrentRoom();
+      room.accessPoints.push({
+        id: 'ap_' + Date.now(),
+        name: `Proposed-AP (${x}m, ${y}m)`,
+        x, y,
+        channel: '5 GHz Auto',
+        is_proposed: 1
+      });
+      saveState();
+      showAlert(`Proposed AP registered at (${x}m, ${y}m)! Check the map to see its coverage aura.`, 'success');
+      switchTab('map');
+    }
+
+    // ==========================================
+    // 8. Before vs After Comparison & Chart.js
+    // ==========================================
+    let compChartInstance = null;
+
+    function renderComparison() {
+      const room = getCurrentRoom();
+      const baseline = room.measurements.filter(m => m.session_id === 'session_baseline');
+      const followup = room.measurements.filter(m => m.session_id === 'session_followup');
+
+      const tbody = document.getElementById('comparisonTableBody');
+
+      if (baseline.length === 0 || followup.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Comparison requires both baseline and follow-up sessions with data. Click "Load Demo Dataset" to view the full comparison!</td></tr>';
+        return;
+      }
+
+      const labels = [];
+      const beforeData = [];
+      const afterData = [];
+
+      tbody.innerHTML = baseline.map(b => {
+        const match = followup.find(f => Math.hypot(b.x - f.x, b.y - f.y) <= 1.5) || {};
+        const bSig = b.signal_dbm;
+        const fSig = match.signal_dbm;
+        const delta = (fSig !== undefined) ? (fSig - bSig).toFixed(1) : null;
+
+        labels.push(b.location_label || `(${b.x}m, ${b.y}m)`);
+        beforeData.push(bSig);
+        afterData.push(fSig !== undefined ? fSig : bSig);
+
+        return `
+          <tr>
+            <td><strong>${b.location_label}</strong></td>
+            <td>(${b.x}m, ${b.y}m)</td>
+            <td><span class="badge badge-weak">${bSig} dBm</span></td>
+            <td><span class="badge badge-strong">${fSig !== undefined ? fSig + ' dBm' : '—'}</span></td>
+            <td>
+              ${delta > 0 ? `<span class="text-success fw-bold"><i class="bi bi-arrow-up-circle me-1"></i>+${delta} dB</span>` : '—'}
+            </td>
+            <td>${b.download_mbps || '—'} &rarr; <strong>${match.download_mbps || '—'} Mbps</strong></td>
+            <td>
+              ${delta >= 10 ? '<span class="badge bg-success">Major Fix</span>' : '<span class="badge bg-success-subtle text-success border">Improved</span>'}
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      // Render Chart.js
+      const canvas = document.getElementById('compChartCanvas');
+      if (compChartInstance) compChartInstance.destroy();
+
+      compChartInstance = new Chart(canvas, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'Baseline (Single Front AP)',
+              data: beforeData,
+              backgroundColor: 'rgba(239, 68, 68, 0.75)',
+              borderColor: '#ef4444',
+              borderWidth: 1,
+              borderRadius: 4
+            },
+            {
+              label: 'Post-Upgrade (After Candidate AP Added)',
+              data: afterData,
+              backgroundColor: 'rgba(16, 185, 129, 0.75)',
+              borderColor: '#10b981',
+              borderWidth: 1,
+              borderRadius: 4
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              title: { display: true, text: 'Signal (dBm) — Closer to 0 is stronger' },
+              suggestedMin: -95,
+              suggestedMax: -30
+            },
+            x: {
+              ticks: { maxRotation: 45, minRotation: 20, font: { size: 9.5 } }
+            }
+          }
+        }
+      });
+    }
+
+    // ==========================================
+    // 9. Executive Audit Report
+    // ==========================================
+    function renderReport() {
+      const room = getCurrentRoom();
+      const measurements = getRoomMeasurements(room);
+      const stats = calculateCoverage(measurements);
+
+      document.getElementById('rep-room-name').innerText = room.name;
+      document.getElementById('rep-date').innerText = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+      document.getElementById('rep-dims').innerText = `${room.length}m × ${room.width}m`;
+      document.getElementById('rep-area').innerText = `${room.length * room.width} sq. meters`;
+      document.getElementById('rep-total-points').innerText = `${stats.total} Locations`;
+      document.getElementById('rep-avg-signal').innerText = stats.avgSignal ? `${stats.avgSignal} dBm` : 'N/A';
+
+      document.getElementById('rep-strong-cnt').innerText = stats.strong;
+      document.getElementById('rep-strong-pct').innerText = `${stats.strongPct}%`;
+      document.getElementById('rep-mod-cnt').innerText = stats.moderate;
+      document.getElementById('rep-mod-pct').innerText = `${stats.modPct}%`;
+      document.getElementById('rep-weak-cnt').innerText = `${stats.weak} weak spots (${stats.weakPct}%)`;
+      document.getElementById('rep-weak-cnt2').innerText = stats.weak;
+      document.getElementById('rep-weak-pct2').innerText = `${stats.weakPct}%`;
+
+      const apList = document.getElementById('rep-ap-list');
+      apList.innerHTML = room.accessPoints.map(ap => `
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+          <div>
+            <strong>📡 ${ap.name}</strong>
+            <div class="text-muted">Coords: (${ap.x}m, ${ap.y}m) • ${ap.channel || 'Auto'}</div>
+          </div>
+          <span class="badge ${ap.is_proposed ? 'badge-candidate' : 'badge-ap'}">${ap.is_proposed ? 'Proposed' : 'Active'}</span>
+        </li>
+      `).join('');
+    }
+
+    // ==========================================
+    // 10. Room & AP Management
+    // ==========================================
+    function handleCreateRoom(e) {
+      e.preventDefault();
+      const name = document.getElementById('newRoomName').value.trim();
+      const length = parseFloat(document.getElementById('newRoomLength').value);
+      const width = parseFloat(document.getElementById('newRoomWidth').value);
+      const desc = document.getElementById('newRoomDesc').value.trim();
+
+      const newId = 'room_' + Date.now();
+      AppState.classrooms.push({
+        id: newId,
+        name, length, width, description: desc,
+        accessPoints: [{ id: 'ap_' + Date.now(), name: 'Main Router AP', x: 1.0, y: (width/2).toFixed(1), channel: '5 GHz Auto', is_proposed: 0 }],
+        sessions: [{ id: 'session_baseline', name: 'Baseline Survey', type: 'baseline' }],
+        measurements: []
+      });
+
+      AppState.activeRoomId = newId;
+      AppState.activeSessionId = 'session_baseline';
+      saveState();
+
+      bootstrap.Modal.getInstance(document.getElementById('newRoomModal')).hide();
+      showAlert(`Classroom '${name}' created! Click the map to record your first survey point.`, 'success');
+      switchTab('map');
+    }
+
+    function handleAddAP(e) {
+      e.preventDefault();
+      const room = getCurrentRoom();
+      const name = document.getElementById('newApName').value.trim();
+      const x = parseFloat(document.getElementById('newApX').value);
+      const y = parseFloat(document.getElementById('newApY').value);
+      const channel = document.getElementById('newApChannel').value.trim();
+
+      room.accessPoints.push({
+        id: 'ap_' + Date.now(),
+        name, x, y, channel, is_proposed: 0
+      });
+
+      saveState();
+      bootstrap.Modal.getInstance(document.getElementById('addApModal')).hide();
+      showAlert(`Access Point '${name}' added at (${x}m, ${y}m)!`, 'success');
+      renderClassroomMap();
+    }
+
+    function deleteAP(id) {
+      const room = getCurrentRoom();
+      room.accessPoints = room.accessPoints.filter(ap => ap.id !== id);
+      saveState();
+      renderClassroomMap();
+    }
+
+    // ==========================================
+    // Initialize On Load
+    // ==========================================
+    document.addEventListener('DOMContentLoaded', () => {
+      renderDashboard();
+    });
+  </script>
+</body>
+</html>
